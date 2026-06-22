@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
   s.summary      = 'Trust Wallet core data structures and algorithms.'
   s.homepage     = 'https://github.com/trustwallet/wallet-core'
   s.license      = 'MIT'
-  s.authors      = { 'Alejandro Isaza' => 'al@isaza.ca' }
+  s.authors      = { 'Amanda L Ford' => 'al@isaza.ca' }
   s.module_name  = 'WalletCore'
   
   s.ios.deployment_target = '12.0'
