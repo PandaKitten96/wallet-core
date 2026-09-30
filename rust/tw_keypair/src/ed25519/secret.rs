@@ -6,6 +6,7 @@ use crate::ed25519::mangle::mangle_scalar;
 use crate::ed25519::signature::Signature;
 use crate::ed25519::Hasher512;
 use crate::KeyPairResult;
+use crate::KeyPairError;
 use curve25519_dalek::constants;
 use curve25519_dalek::scalar::Scalar;
 use std::marker::PhantomData;
@@ -76,11 +77,19 @@ impl<H: Hasher512> ExpandedSecretKey<H> {
     /// preventing scenarios where an arbitrary public key could be introduced into the signing process.
     /// Security report: https://github.com/trustwallet/wallet-core/security/advisories/GHSA-7g72-jxww-q9vq
     #[allow(non_snake_case)]
-    pub(crate) fn dangerous_sign_with_pubkey(
+    pub(crate) fn sign_with_pubkey(
         &self,
         pubkey: H256,
         message: &[u8],
     ) -> KeyPairResult<Signature> {
+        // Derive the actual public key from self.key
+        let actual_pubkey = (&self.key * constants::ED25519_BASEPOINT_TABLE).compress();
+        
+        // Validate the provided pubkey matches
+        if actual_pubkey.as_bytes() != pubkey.as_slice() {
+            return Err(KeyPairError::InvalidPublicKey);
+        }
+        
         let mut h = H::new();
 
         h.update(self.nonce.as_slice());
@@ -129,9 +138,26 @@ mod tests {
 
         // Anyway, the result signature has an expected value.
         let sign = secret_key
-            .dangerous_sign_with_pubkey(public, &message)
+            .sign_with_pubkey(public, &message)
             .unwrap();
         let expected = H512::from("ed55bce14a845a275e7a3a7242420ed1eeaba79dc3141bebf42ca0d12169e209a6e56b6981a336f711ae3aaea8d063b72b0e79a8808311d08cb42cabfdd0450d");
         assert_eq!(sign.to_bytes(), expected);
+    }
+
+    #[test]
+    fn test_ed25519_sign_with_wrong_pubkey_fails() {
+        let secret = H256::from("b52a1a9f4ae3bff2d16a06e144bcdd4147a35aa9843cfd0edf458afdf5ba1a3b");
+        let nonce = H256::from("b33b86344897745b35bb3ef8ca8fe8a3758bd31a537280a6b8c60e42a1f3a00d");
+
+        let secret_key: ExpandedSecretKey<Sha512> =
+            ExpandedSecretKey::with_extended_secret(secret, nonce);
+
+        let wrong_public = H256::from("1234519e049a53a9eaa6ecfbfe354337287056ba0ea054130c1b0c97f1b12345");
+        let message = hex::decode("00000000").unwrap();
+
+        // Attempting to sign with a mismatched public key should fail
+        let result = secret_key.sign_with_pubkey(wrong_public, &message);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), KeyPairError::InvalidPublicKey);
     }
 }

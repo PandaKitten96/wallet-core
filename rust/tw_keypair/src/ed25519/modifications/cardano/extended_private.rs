@@ -52,7 +52,7 @@ impl<H: Hasher512> SigningKeyTrait for ExtendedPrivateKey<H> {
     fn sign(&self, message: Self::SigningMessage) -> KeyPairResult<Self::Signature> {
         self.key
             .expanded_key
-            .dangerous_sign_with_pubkey(self.public().key_for_signing(), message.as_slice())
+            .sign_with_pubkey(self.public().key_for_signing(), message.as_slice())
     }
 }
 
